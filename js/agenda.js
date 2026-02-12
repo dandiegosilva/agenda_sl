@@ -55,6 +55,8 @@
             altFormat: 'd/m/Y',
             allowInput: false,
             clickOpens: true,
+            mode: "multiple",
+            conjunction: ", ", 
             
             // Limites de data
             minDate: new Date(2026, 0, 1),  // 01/01/2026
@@ -169,3 +171,35 @@
     });
     
 })();
+
+document.addEventListener("DOMContentLoaded", function () {
+
+    const selectDevs = document.getElementById("quantidade_desenvolvedores");
+    const inputData = document.getElementById("data_visita");
+    const valorSpan = document.getElementById("valor_total");
+
+    function calcularTotal() {
+
+        const valorPorDev = parseFloat(selectDevs.dataset.valor);
+        const qtdDevs = parseInt(selectDevs.value);
+
+        if (!inputData._flatpickr) return;
+
+        const datasSelecionadas = inputData._flatpickr.selectedDates;
+        const quantidadeDias = datasSelecionadas.length;
+
+        const total = valorPorDev * qtdDevs * quantidadeDias;
+
+        valorSpan.textContent = total.toLocaleString("pt-BR", {
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 2
+        });
+    }
+
+    selectDevs.addEventListener("change", calcularTotal);
+
+    if (inputData._flatpickr) {
+        inputData._flatpickr.config.onChange.push(calcularTotal);
+    }
+
+});
