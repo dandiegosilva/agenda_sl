@@ -1,205 +1,169 @@
-(function() {
+(function () {
     'use strict';
-    
-    const inputDataVisita = document.getElementById('data_visita');
-    
-    if (!inputDataVisita) {
-        console.error('Campo data_visita não encontrado');
-        return;
-    }
-    
-    // ========================================
-    // BUSCAR DATAS DO SERVIDOR
-    // ========================================
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 10000);
 
-    fetch('datas_agenda.php', {
-        method: 'GET',
-        headers: {
-            'X-Requested-With': 'XMLHttpRequest'
-        },
-        signal: controller.signal
-    })
-    .then(response => {
-        clearTimeout(timeoutId);
-        if (!response.ok) {
-            throw new Error('Erro ao carregar datas');
-        }
-        return response.json();
-    })
-    .then(data => {
-        let datasAbertas = data.abertas || [];
-        let datasOcupadas = data.ocupadas || [];
-        
-        // ========================================
-        // FUNÇÃO PARA DESABILITAR DATAS NÃO DISPONÍVEIS
-        // ========================================
-        const desabilitarDataNaoDisponivel = function(date) {
-            const y = date.getFullYear();
-            const m = String(date.getMonth() + 1).padStart(2, '0');
-            const d = String(date.getDate()).padStart(2, '0');
-            const iso = `${y}-${m}-${d}`;
-            
-            // Desabilitar se não está na lista de abertas OU está ocupada
-            return !datasAbertas.includes(iso) || datasOcupadas.includes(iso);
-        };
-        
-        // ========================================
-        // INICIALIZAR FLATPICKR
-        // ========================================
-        const fp = flatpickr(inputDataVisita, {
-            locale: 'pt',
-            dateFormat: 'd/m/Y',
-            altInput: true,
-            altFormat: 'd/m/Y',
-            allowInput: false,
-            clickOpens: true,
-            mode: "multiple",
-            conjunction: ", ", 
-            
-            // Limites de data
-            minDate: new Date(2026, 0, 1),  // 01/01/2026
-            maxDate: new Date(2026, 11, 31), // 31/12/2026
-            
-            // Desabilitar datas não disponíveis
-            disable: [desabilitarDataNaoDisponivel],
-            
-            // Estilizar dias no calendário
-            onDayCreate: function(dObj, dStr, fp, dayElem) {
-                const y = dayElem.dateObj.getFullYear();
-                const m = String(dayElem.dateObj.getMonth() + 1).padStart(2, '0');
-                const d = String(dayElem.dateObj.getDate()).padStart(2, '0');
-                const iso = `${y}-${m}-${d}`;
-                
-                // Adicionar classes de estilo
-                if (datasOcupadas.includes(iso)) {
-                    dayElem.classList.add('dia-bloqueado');
-                    dayElem.title = 'Data ocupada';
-                } else if (datasAbertas.includes(iso)) {
-                    dayElem.classList.add('dia-disponivel');
-                    dayElem.title = 'Data disponível';
-                }
-            },
-            
-            // Validação ao selecionar data
-            onChange: function(selectedDates, dateStr, instance) {
-                if (selectedDates.length === 0) return;
-                
-                const dataSelecionada = selectedDates[0];
-                const y = dataSelecionada.getFullYear();
-                const m = String(dataSelecionada.getMonth() + 1).padStart(2, '0');
-                const d = String(dataSelecionada.getDate()).padStart(2, '0');
-                const iso = `${y}-${m}-${d}`;
-                
-                // Verificar se data está ocupada
-                if (datasOcupadas.includes(iso)) {
-                    Swal.fire({
-                        icon: 'warning',
-                        title: 'Data Indisponível',
-                        text: 'Esta data já está reservada. Por favor, escolha outra data.',
-                        confirmButtonText: 'OK',
-                        confirmButtonColor: '#1e92ff'
-                    });
-                    instance.clear();
-                    return;
-                }
-                
-                // Verificar se data está disponível
-                if (!datasAbertas.includes(iso)) {
-                    Swal.fire({
-                        icon: 'warning',
-                        title: 'Data Não Liberada',
-                        text: 'Esta data não está disponível para agendamento. Selecione uma data destacada em verde.',
-                        confirmButtonText: 'OK',
-                        confirmButtonColor: '#1e92ff'
-                    });
-                    instance.clear();
-                    return;
-                }
-                
-                // Data válida - adicionar feedback visual
-                inputDataVisita.classList.remove('is-invalid');
-                inputDataVisita.classList.add('is-valid');
-            },
-            
-            // Callback quando abre o calendário
-            onOpen: function() {
-                // Adicionar animação suave
-                const calendar = document.querySelector('.flatpickr-calendar');
-                if (calendar) {
-                    calendar.style.animation = 'fadeIn 0.2s ease-in-out';
-                }
-            },
-            
-            // Configurações de acessibilidade
-            ariaDateFormat: 'd/m/Y',
-            
-            // Desabilitar animações se usuário preferir movimento reduzido
-            animate: !window.matchMedia('(prefers-reduced-motion: reduce)').matches
-        });
-        
-        // ========================================
-        // CONFIGURAR TOOLTIPS
-        // ========================================
-        if (typeof bootstrap !== 'undefined' && bootstrap.Tooltip) {
-            const tooltipTriggerList = document.querySelectorAll('[data-bs-toggle="tooltip"]');
-            [...tooltipTriggerList].map(tooltipTriggerEl => new bootstrap.Tooltip(tooltipTriggerEl));
-        }
-        
-    })
-    .catch(error => {
-        clearTimeout(timeoutId);
-        console.error('Erro ao carregar datas:', error);
+    document.addEventListener("DOMContentLoaded", function () {
 
-        const mensagem = error.name === 'AbortError'
-            ? 'O servidor demorou para responder. Recarregue a página.'
-            : 'Não foi possível carregar as datas disponíveis. Por favor, recarregue a página.';
-        
-        // Mostrar erro ao usuário
-        Swal.fire({
-            icon: 'error',
-            title: 'Erro ao Carregar Calendário',
-            text: mensagem,
-            confirmButtonText: 'Recarregar',
-            confirmButtonColor: '#1e92ff'
-        }).then((result) => {
-            if (result.isConfirmed) {
-                window.location.reload();
-            }
-        });
+        const inputDataVisita = document.getElementById('data_visita');
+        const selectDevs = document.getElementById("quantidade_desenvolvedores");
+        const valorSpan = document.getElementById("valor_total");
+
+        if (!inputDataVisita || !selectDevs || !valorSpan) {
+            console.error("Elementos necessários não encontrados.");
+            return;
+        }
+
+        const VALOR_POR_DESENVOLVEDOR = parseFloat(selectDevs.dataset.valor || 0);
+
+        // ========================================
+        // BUSCAR DATAS DO SERVIDOR
+        // ========================================
+
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 10000);
+
+        fetch('datas_agenda.php', {
+            method: 'GET',
+            headers: { 'X-Requested-With': 'XMLHttpRequest' },
+            signal: controller.signal
+        })
+            .then(response => {
+                clearTimeout(timeoutId);
+                if (!response.ok) {
+                    throw new Error('Erro ao carregar datas');
+                }
+                return response.json();
+            })
+            .then(data => {
+
+                const datasAbertas = data.abertas || [];
+                const datasOcupadas = data.ocupadas || [];
+
+                // ========================================
+                // DESABILITAR DATAS NÃO DISPONÍVEIS
+                // ========================================
+
+                function desabilitarDataNaoDisponivel(date) {
+
+                    const y = date.getFullYear();
+                    const m = String(date.getMonth() + 1).padStart(2, '0');
+                    const d = String(date.getDate()).padStart(2, '0');
+                    const iso = `${y}-${m}-${d}`;
+
+                    return !datasAbertas.includes(iso) || datasOcupadas.includes(iso);
+                }
+
+                // ========================================
+                // INICIALIZAR FLATPICKR
+                // ========================================
+
+                const fp = flatpickr(inputDataVisita, {
+                    locale: 'pt',
+                    dateFormat: 'd/m/Y',
+                    altInput: true,
+                    altFormat: 'd/m/Y',
+                    mode: "multiple",
+                    conjunction: ", ",
+                    minDate: "today",
+                    disable: [desabilitarDataNaoDisponivel],
+
+                    onDayCreate: function (dObj, dStr, fp, dayElem) {
+
+                        const y = dayElem.dateObj.getFullYear();
+                        const m = String(dayElem.dateObj.getMonth() + 1).padStart(2, '0');
+                        const d = String(dayElem.dateObj.getDate()).padStart(2, '0');
+                        const iso = `${y}-${m}-${d}`;
+
+                        if (datasOcupadas.includes(iso)) {
+                            dayElem.classList.add('dia-bloqueado');
+                            dayElem.title = 'Data ocupada';
+                        } else if (datasAbertas.includes(iso)) {
+                            dayElem.classList.add('dia-disponivel');
+                            dayElem.title = 'Data disponível';
+                        }
+                    },
+
+                    onChange: function (selectedDates, dateStr, instance) {
+
+                        if (selectedDates.length === 0) {
+                            valorSpan.textContent = "0,00";
+                            inputDataVisita.classList.remove('is-valid');
+                            return;
+                        }
+
+                        // valida se alguma data ficou inválida
+                        for (let dataSelecionada of selectedDates) {
+
+                            const y = dataSelecionada.getFullYear();
+                            const m = String(dataSelecionada.getMonth() + 1).padStart(2, '0');
+                            const d = String(dataSelecionada.getDate()).padStart(2, '0');
+                            const iso = `${y}-${m}-${d}`;
+
+                            if (datasOcupadas.includes(iso) || !datasAbertas.includes(iso)) {
+
+                                Swal.fire({
+                                    icon: 'warning',
+                                    title: 'Data inválida',
+                                    text: 'Uma das datas selecionadas não está disponível.',
+                                    confirmButtonColor: '#1e92ff'
+                                });
+
+                                instance.clear();
+                                valorSpan.textContent = "0,00";
+                                return;
+                            }
+                        }
+
+                        inputDataVisita.classList.remove('is-invalid');
+                        inputDataVisita.classList.add('is-valid');
+
+                        calcularTotal();
+                    }
+                });
+
+                // ========================================
+                // FUNÇÃO DE CÁLCULO OFICIAL
+                // ========================================
+
+                function calcularTotal() {
+
+                    const qtdDevs = parseInt(selectDevs.value || 0);
+                    const quantidadeDias = fp.selectedDates.length;
+
+                    if (!qtdDevs || quantidadeDias === 0) {
+                        valorSpan.textContent = "0,00";
+                        return;
+                    }
+
+                    const total = VALOR_POR_DESENVOLVEDOR * qtdDevs * quantidadeDias;
+
+                    valorSpan.textContent = total.toLocaleString("pt-BR", {
+                        minimumFractionDigits: 2,
+                        maximumFractionDigits: 2
+                    });
+                }
+
+                // Atualiza quando muda desenvolvedor
+                selectDevs.addEventListener("change", calcularTotal);
+
+            })
+            .catch(error => {
+
+                clearTimeout(timeoutId);
+                console.error('Erro ao carregar datas:', error);
+
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Erro ao Carregar Calendário',
+                    text: 'Não foi possível carregar as datas disponíveis.',
+                    confirmButtonText: 'Recarregar',
+                    confirmButtonColor: '#1e92ff'
+                }).then(result => {
+                    if (result.isConfirmed) {
+                        window.location.reload();
+                    }
+                });
+            });
+
     });
-    
+
 })();
-
-document.addEventListener("DOMContentLoaded", function () {
-
-    const selectDevs = document.getElementById("quantidade_desenvolvedores");
-    const inputData = document.getElementById("data_visita");
-    const valorSpan = document.getElementById("valor_total");
-
-    function calcularTotal() {
-
-        const valorPorDev = parseFloat(selectDevs.dataset.valor);
-        const qtdDevs = parseInt(selectDevs.value);
-
-        if (!inputData._flatpickr) return;
-
-        const datasSelecionadas = inputData._flatpickr.selectedDates;
-        const quantidadeDias = datasSelecionadas.length;
-
-        const total = valorPorDev * qtdDevs * quantidadeDias;
-
-        valorSpan.textContent = total.toLocaleString("pt-BR", {
-            minimumFractionDigits: 2,
-            maximumFractionDigits: 2
-        });
-    }
-
-    selectDevs.addEventListener("change", calcularTotal);
-
-    if (inputData._flatpickr) {
-        inputData._flatpickr.config.onChange.push(calcularTotal);
-    }
-
-});

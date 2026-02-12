@@ -29,47 +29,45 @@ function retornarSucesso(string $mensagem, array $data = []): void {
     exit;
 }
 
+/* ===========================
+   CSRF
+=========================== */
+
 if (!CSRF::validarToken($_POST['csrf_token'] ?? null)) {
-    retornarErro('Token de segurança inválido. Por favor, recarregue a página e tente novamente.', 403);
+    retornarErro('Token inválido.', 403);
 }
+
+/* ===========================
+   VALIDAÇÃO
+=========================== */
 
 $errors = [];
 
 $nome = Validator::nome($_POST['nome_leiloeiro'] ?? '', 3, 100);
-if (!$nome) {
-    $errors[] = 'Nome do leiloeiro inválido. Deve ter entre 3 e 100 caracteres.';
-}
-
 $telefone = Validator::telefone($_POST['telefone'] ?? '');
-if (!$telefone) {
-    $errors[] = 'Telefone inválido. Use o formato: (00) 00000-0000';
-}
-
 $cidade = Validator::cidade($_POST['cidade'] ?? '', 2, 100);
-if (!$cidade) {
-    $errors[] = 'Cidade inválida. Deve ter entre 2 e 100 caracteres.';
-}
-
-$dataObj = Validator::data($_POST['data_visita'] ?? '');
-if (!$dataObj) {
-    $errors[] = 'Data inválida. Selecione uma data futura válida.';
-}
-
 $qtdDev = Validator::inteiroPositivo($_POST['quantidade_desenvolvedores'] ?? 0, 1, 10);
-if (!$qtdDev) {
-    $errors[] = 'Quantidade de desenvolvedores inválida.';
-}
+$datasInput = $_POST['data_visita'] ?? '';
+
+if (!$nome) $errors[] = 'Nome inválido.';
+if (!$telefone) $errors[] = 'Telefone inválido.';
+if (!$cidade) $errors[] = 'Cidade inválida.';
+if (!$qtdDev) $errors[] = 'Quantidade inválida.';
+if (empty($datasInput)) $errors[] = 'Selecione ao menos uma data.';
 
 if (!empty($errors)) {
-    retornarErro(implode(' ', $errors), 400);
+    retornarErro(implode(' ', $errors));
 }
 
+/* ===========================
+   CONFIGURAÇÕES
+=========================== */
+
 try {
-    $stmt = $pdo->query("SELECT * FROM configuracoes LIMIT 1");
-    $config = $stmt->fetch();
+    $config = $pdo->query("SELECT * FROM configuracoes LIMIT 1")->fetch();
 
     if (!$config) {
-        throw new Exception('Configurações não encontradas');
+        throw new Exception('Config não encontrada');
     }
 
     $valorPorDev = (float)$config['valor_padrao_desenvolvedor'];
@@ -77,59 +75,89 @@ try {
     $horasExp    = (int)$config['horas_expiracao'];
 
     if ($qtdDev > $limiteMax) {
-        retornarErro("Quantidade máxima permitida: {$limiteMax} desenvolvedores.", 400);
+        retornarErro("Máximo permitido: {$limiteMax} desenvolvedores.");
     }
 
 } catch (Exception $e) {
-    error_log('Config Error: ' . $e->getMessage());
-    retornarErro('Erro ao processar configurações. Tente novamente.', 500);
+    error_log($e->getMessage());
+    retornarErro('Erro ao carregar configurações.', 500);
 }
 
-$dataBanco = $dataObj->format('Y-m-d');
+/* ===========================
+   PROCESSAR DATAS
+=========================== */
 
-try {
-    $stmt = $pdo->prepare("
-        SELECT COUNT(*) as total
-        FROM agenda_aberta
-        WHERE data = :data
-    ");
-    $stmt->execute(['data' => $dataBanco]);
-    $dataLiberada = $stmt->fetch();
+$datasArray = array_map('trim', explode(',', $datasInput));
+$datasValidas = [];
+$datasFormatadas = [];
 
-    $dataInicioPredefinida = new DateTime('2026-02-12');
-    $dataFimPredefinida = new DateTime('2026-03-13');
+foreach ($datasArray as $dataStr) {
 
-    $isDataPredefinida = ($dataObj >= $dataInicioPredefinida && $dataObj <= $dataFimPredefinida);
+    $dataObj = DateTime::createFromFormat('d/m/Y', $dataStr);
 
-    if ($dataLiberada['total'] == 0 && !$isDataPredefinida) {
-        retornarErro('Esta data não está disponível para agendamento.', 400);
+    if (!$dataObj) {
+        retornarErro("Data inválida: {$dataStr}");
     }
 
-    $stmt = $pdo->prepare("
-        SELECT COUNT(*) as total
-        FROM agenda_visitas
-        WHERE data_visita = :data
-        AND status IN ('aguardando', 'confirmado')
-    ");
-    $stmt->execute(['data' => $dataBanco]);
-    $ocupada = $stmt->fetch();
+    if ($dataObj < new DateTime('today')) {
+        retornarErro("Data passada não permitida.");
+    }
 
-    if ($ocupada['total'] > 0) {
-        retornarErro('Esta data já está reservada. Por favor, escolha outra data.', 400);
+    $datasValidas[] = $dataObj;
+    $datasFormatadas[] = $dataObj->format('d/m/Y');
+}
+
+if (empty($datasValidas)) {
+    retornarErro('Nenhuma data válida informada.');
+}
+
+/* ===========================
+   VERIFICAR DISPONIBILIDADE
+=========================== */
+
+try {
+
+    foreach ($datasValidas as $dataObj) {
+
+        $dataBanco = $dataObj->format('Y-m-d');
+
+        // Está liberada?
+        $stmt = $pdo->prepare("SELECT COUNT(*) FROM agenda_aberta WHERE data = ?");
+        $stmt->execute([$dataBanco]);
+        if ($stmt->fetchColumn() == 0) {
+            retornarErro("Data {$dataObj->format('d/m/Y')} não está disponível.");
+        }
+
+        // Está ocupada?
+        $stmt = $pdo->prepare("
+            SELECT COUNT(*) FROM agenda_visitas 
+            WHERE data_visita = ? 
+            AND status IN ('aguardando','confirmado')
+        ");
+        $stmt->execute([$dataBanco]);
+
+        if ($stmt->fetchColumn() > 0) {
+            retornarErro("Data {$dataObj->format('d/m/Y')} já está reservada.");
+        }
     }
 
 } catch (PDOException $e) {
-    error_log('Database Error: ' . $e->getMessage());
-    retornarErro('Erro ao verificar disponibilidade. Tente novamente.', 500);
+    error_log($e->getMessage());
+    retornarErro('Erro ao verificar disponibilidade.', 500);
 }
 
-$valorTotal = $valorPorDev * $qtdDev;
+/* ===========================
+   INSERÇÃO (UM REGISTRO POR DIA)
+=========================== */
+
+$valorTotalGeral = $valorPorDev * $qtdDev * count($datasValidas);
 
 $expiracao = (new DateTime())
     ->modify("+{$horasExp} hours")
     ->format('Y-m-d H:i:s');
 
 try {
+
     $pdo->beginTransaction();
 
     $sql = "INSERT INTO agenda_visitas (
@@ -157,71 +185,64 @@ try {
             )";
 
     $stmt = $pdo->prepare($sql);
-    $stmt->execute([
-        'nome'      => $nome,
-        'telefone'  => $telefone,
-        'cidade'    => $cidade,
-        'data'      => $dataBanco,
-        'qtd'       => $qtdDev,
-        'valorDev'  => $valorPorDev,
-        'total'     => $valorTotal,
-        'expiracao' => $expiracao
-    ]);
 
-    $reservaId = $pdo->lastInsertId();
+    foreach ($datasValidas as $dataObj) {
+
+        $dataBanco = $dataObj->format('Y-m-d');
+
+        $stmt->execute([
+            'nome'      => $nome,
+            'telefone'  => $telefone,
+            'cidade'    => $cidade,
+            'data'      => $dataBanco,
+            'qtd'       => $qtdDev,
+            'valorDev'  => $valorPorDev,
+            'total'     => $valorPorDev * $qtdDev,
+            'expiracao' => $expiracao
+        ]);
+    }
 
     $pdo->commit();
 
-    error_log(sprintf(
-        'Reserva criada com sucesso - ID: %d | Nome: %s | Data: %s | Valor: R$ %.2f',
-        $reservaId,
-        $nome,
-        $dataBanco,
-        $valorTotal
-    ));
-
-    if (isset($rateLimit)) {
-        $rateLimit->resetar('booking');
-    }
-
-    CSRF::rotacionarToken();
-
 } catch (PDOException $e) {
+
     if ($pdo->inTransaction()) {
         $pdo->rollBack();
     }
-    error_log('Insert Error: ' . $e->getMessage());
-    retornarErro('Erro ao criar reserva. Por favor, tente novamente.', 500);
+
+    error_log($e->getMessage());
+    retornarErro('Erro ao criar reserva.', 500);
 }
+
+/* ===========================
+   WHATSAPP
+=========================== */
 
 $telefoneWhats = getenv('WHATSAPP_PHONE') ?: '553899507998';
 
 $mensagemWhats = sprintf(
-    "Olá, Tiago Felipe! Acabei de fazer uma reserva na sua agenda.\n\n" .
-    "📋 *Detalhes da Reserva:*\n" .
+    "Olá! Acabei de fazer uma reserva.\n\n" .
+    "📋 Detalhes:\n" .
     "• Nome: %s\n" .
-    "• Data: %s\n" .
+    "• Datas: %s\n" .
     "• Desenvolvedores: %d\n" .
     "• Valor Total: R$ %.2f\n\n" .
-    "Por favor, me envie a chave PIX para efetuar o pagamento.",
+    "Por favor, envie a chave PIX.",
     $nome,
-    $dataObj->format('d/m/Y'),
+    implode(', ', $datasFormatadas),
     $qtdDev,
-    $valorTotal
+    $valorTotalGeral
 );
 
-$linkWhats = sprintf(
-    'https://wa.me/%s?text=%s',
-    $telefoneWhats,
-    urlencode($mensagemWhats)
-);
+$linkWhats = "https://wa.me/{$telefoneWhats}?text=" . urlencode($mensagemWhats);
+
+CSRF::rotacionarToken();
 
 retornarSucesso('Reserva criada com sucesso!', [
-    'reserva_id' => $reservaId,
     'nome' => $nome,
-    'data' => $dataObj->format('d/m/Y'),
+    'datas' => $datasFormatadas,
     'quantidade' => $qtdDev,
-    'valor_total' => number_format($valorTotal, 2, ',', '.'),
+    'valor_total' => number_format($valorTotalGeral, 2, ',', '.'),
     'expiracao' => $expiracao,
     'whatsapp_link' => $linkWhats
 ]);

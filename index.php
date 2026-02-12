@@ -108,7 +108,7 @@
                         <!-- Data da Visita -->
                         <div class="mb-3">
                            <label for="data_visita" class="form-label fw-semibold">
-                           Data da Visita <span class="text-danger" aria-hidden="true">*</span>
+                           Período da visita <span class="text-danger" aria-hidden="true">*</span>
                            </label>
                            <input 
                               type="text" 
@@ -185,6 +185,9 @@
       <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
       <script src="https://cdn.jsdelivr.net/npm/flatpickr/dist/l10n/pt.js"></script>
       <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+      <script>
+         const VALOR_POR_DESENVOLVEDOR = <?= (float)$valorPorDev ?>;
+      </script>
       <script src="js/form.js"></script>
       <script src="js/agenda.js"></script>
    </body>
