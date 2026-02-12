@@ -1,0 +1,224 @@
+/* SCROLLBAR */
+::-webkit-scrollbar {
+    width: 6px;
+    height: 2px;
+}
+::-webkit-scrollbar-track {
+    background-color: #ecedf2;
+}
+::-webkit-scrollbar-thumb {
+    background-color: #b5b5b5;
+    border-radius: 15px;
+}
+
+.header-blog {
+    background-image: linear-gradient(to right, #1e92ff, #0062be);
+    color: #fff;
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    z-index: 1000;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+    padding: 20px 0;
+}
+
+.header-blog .container {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+.header-blog img.logo-admin {
+        margin: 0;
+        height: 45px;
+        filter: brightness(0) invert(1);
+}
+
+.header-blog h1 {
+    font-size: 20px;
+}
+
+.form-label {
+    /* margin-bottom: .5rem; */
+    margin-bottom: 8px;
+    padding: 10px 0 0 0;
+}
+
+.card {
+    border: 1px solid #e5e7eb;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+}
+
+.card h5 {
+    color: #0f172a;
+    text-align: center !important;
+}
+
+.form-label {
+    font-weight: 600;
+    font-size: 0.9rem;
+}
+
+@media (max-width: 576px) {
+
+    .header-blog {
+        padding: 0px;
+    }
+    .header-blog .container {
+        justify-content: center;
+        align-items: center;
+    }
+
+    .header-blog img.logo-admin {
+        margin: 0;
+        height: 45px;
+        filter: brightness(0) invert(1);
+        transform: translateY(-10px);
+    }
+
+}
+
+
+.form-remarcar:not(.d-none) ~ form .btn-danger {
+    margin: 6px 6px 0 0;
+}
+
+.dia-disponivel {
+    background: #22c55e !important;
+    color: white !important;
+    border-radius: 6px;
+}
+
+.dia-confirmado {
+    background: #16a34a !important;
+    color: white !important;
+    border-radius: 6px;
+}
+
+.dia-pendente {
+    background: #f59e0b !important;
+    color: white !important;
+    border-radius: 6px;
+}
+
+.dia-bloqueado {
+    background: #ef4444 !important;
+    color: white !important;
+    opacity: .6;
+}
+
+
+#btn-abrir-agenda {
+    background: linear-gradient(180deg, #1e92ff, #1986ee, #127ade, #0a6ece, #0062be);
+    border: none;
+    color: #fff;
+    font-weight: 600;
+    transition: transform 0.2s, box-shadow 0.2s;
+}
+
+#btn-abrir-agenda:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 12px rgba(0,0,0,0.2);
+}
+
+
+.admin-container {
+    padding: 40px 15px 20px;
+    max-width: 1300px;
+    margin: 0 auto;
+}
+body {
+    background: linear-gradient(135deg, #e9eaee 0%, #bdbbc0 100%);
+    padding-top: 80px;
+}
+.status {
+    padding: 4px 10px;
+    border-radius: 6px;
+    color: #fff;
+    font-weight: 600;
+    font-size: 0.85em;
+}
+.status.aguardando {
+    background: #f59e0b;
+}
+.status.confirmado {
+    background: #10b981;
+}
+.status.cancelado {
+    background: #ef4444;
+}
+.table-responsive {
+    overflow-x: auto;
+}
+.form-remarcar {
+    max-width: 200px;
+}
+
+/* BOTÕES */
+.btn-submit {
+    all: unset;
+    display: inline-flex;
+    justify-content: center;
+    align-items: center;
+    background: linear-gradient(to right, #1e92ff, #1986ee, #127ade, #0a6ece, #0062be);
+    color: #fff;
+    padding: 12px 20px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-weight: 600;
+    transition: 0.3s;
+    text-align: center;
+}
+
+.btn-submit:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 25px #1e92ff;
+}
+
+/* RESPONSIVIDADE */
+@media (max-width: 1200px) {
+    .cards {
+        flex-direction: column;
+        gap: 15px;
+    }
+}
+@media (max-width: 992px) {
+    .container {
+        padding: 40px 15px 20px;
+    }
+}
+
+@media (max-width: 992px) {
+    .btn-danger {
+    margin: 10px 0 0 0;
+}
+}
+@media (max-width: 768px) {
+    .filtros {
+        flex-direction: column;
+    }
+    .filtros input,
+    .filtros button,
+    .filtros a {
+        width: 100%;
+    }
+    table {
+        font-size: 0.85em;
+    }
+}
+@media (max-width: 576px) {
+    .header-blog h1 {
+        font-size: 1.8em;
+    }
+    .header-blog span {
+        font-size: 1em;
+    }
+    .configuracoes .card {
+        padding: 20px 15px;
+    }
+    .btn-submit {
+        padding: 10px;
+        font-size: 0.95em;
+    }
+}
